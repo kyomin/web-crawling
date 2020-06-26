@@ -1,12 +1,12 @@
-const parse = require('csv-parse/lib/sync');
-const fs = require('fs');   // 파일 핸들링을 위한 모듈
+const xlsx = require('xlsx');
+const workbook = xlsx.readFile('./xlsx/data.xlsx');
 
-// 파일을 읽어들여 csv 변수에 담는다.
-// 형식이 버퍼이기 때문에 문자열로 바꿔주는 작업이 필요하다.
-// parse에 의해 콤마와 줄바꿈을 기준으로 2차원 배열로 만들어 records에 저장해 준다.
-const csv = fs.readFileSync('./csv/data.csv');
-const records = parse(csv.toString('utf-8'));       
+// workbook.Sheets는 해당 엑셀 파일 내 시트 목록을 반환한다.
+// '영화목록'은 영화 정보를 저장한 시트 이름이다.
+// sheet_to_json를 통해 해당 시트의 정보들을 json 형태로 가공해 리스트로 반환한다.
+const ws = workbook.Sheets.영화목록;
+const records = xlsx.utils.sheet_to_json(ws);
 
 records.forEach((record, idx) => {
-    console.log(idx, record);
+    console.log(record.제목, record.링크);
 });
