@@ -34,8 +34,15 @@ fs.readdir('screenshot', (err) => {
 /* create crawler */
 const crawler = async () => {
     try {
-        const browser = await puppeteer.launch({ headless: process.env.NODE.ENV === 'production' });
+        const browser = await puppeteer.launch({ 
+            headless: process.env.NODE.ENV === 'production',
+            args: ['--window--size=1920, 1080']
+        });
         const page = await browser.newPage();
+        await page.setViewport({
+            width: 1920,
+            height: 1080
+        });
         await page.setUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/83.0.4103.106 Safari/537.36");
         add_to_sheet(ws, 'C1', 's', '평점');
 
@@ -68,7 +75,12 @@ const crawler = async () => {
             }
 
             if(result.img) {
-                console.log("이미지 소스 : ", result.img);
+                console.log("이미지 소스 : ", result.img.split('?')[0]);
+
+                await page.screenshot({
+                    path: `screenshot/${record.제목}.png`,
+                    fullPage: true
+                });
 
                 // 이미지 주소로 get 요청을 보낸다. 그 응답 결과가 arraybuffer 형태로 imgResult에 담긴다.
                 const imgResult = await axios.get(result.img.split('?')[0], {
@@ -76,7 +88,7 @@ const crawler = async () => {
                 });
 
                 // 현재 index.js 폴더의 poster 폴더 내에 해당 파일 명으로 이미지 저장하기
-                fs.writeFileSync(`poster/${record.제목}.jpg`, imgResult.data)
+                fs.writeFileSync(`poster/${record.제목}.jpg`, imgResult.data);
             }
 
             // 페이지 로드 후 3초간 대기한다
