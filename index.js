@@ -1,14 +1,37 @@
 /* module import */
 const xlsx = require('xlsx');
 const puppeteer = require('puppeteer');
+const axios = require('axios');
+const fs = require('fs');
+
+
+/* customized module import */
 const add_to_sheet = require('./add_to_sheet');
+
 
 /* file import */
 const workbook = xlsx.readFile('./xlsx/data.xlsx');
 const ws = workbook.Sheets.영화목록;
 const records = xlsx.utils.sheet_to_json(ws);
 
-// 에러 처리 : 하나의 async 메소드 당 하나의 try ~ catch문을 넣어준다.
+
+/* folder handling */
+fs.readdir('poster', (err) => {
+    if(err) {
+        console.error('poster 폴더가 없어 poster 폴더를 생성합니다.');
+        fs.mkdirSync('poster');
+    }
+});
+
+fs.readdir('screenshot', (err) => {
+    if(err) {
+        console.error('screenshot 폴더가 없어 poster 폴더를 생성합니다.');
+        fs.mkdirSync('screenshot');
+    }
+})
+
+
+/* create crawler */
 const crawler = async () => {
     try {
         const browser = await puppeteer.launch({ headless: process.env.NODE.ENV === 'production' });
@@ -21,18 +44,39 @@ const crawler = async () => {
             await page.goto(record.링크);
             
             // const 태그핸들러 = await page.$(선택자);
-            const text = await page.evaluate(() => {
+            const result = await page.evaluate(() => {
                 // 이 내부에서는 document.querySelector 문법을 쓸 수 있다.
-                const score = document.querySelector('.score.score_left .star_score');
-
-                if(score) {
-                    return score.textContent;
+                const scoreEl = document.querySelector('.score.score_left .star_score');
+                let score = '';
+                if(scoreEl) {
+                    score = scoreEl.textContent;
                 }
+
+                const imgEl = document.querySelector('.poster img');
+                let img = '';
+                if(imgEl) {
+                    img = imgEl.src;
+                }
+
+                return { score, img };
             });
             
-            if(text) {
+            if(result.score) {
+                console.log(record.제목, '평점', result.score.trim());
                 const newCell = 'C' + (idx + 2);
-                add_to_sheet(ws, newCell, 'n', parseFloat(text.trim()));
+                add_to_sheet(ws, newCell, 'n', parseFloat(result.score.trim()));
+            }
+
+            if(result.img) {
+                console.log("이미지 소스 : ", result.img);
+
+                // 이미지 주소로 get 요청을 보낸다. 그 응답 결과가 arraybuffer 형태로 imgResult에 담긴다.
+                const imgResult = await axios.get(result.img.split('?')[0], {
+                    responseType: 'arraybuffer'
+                });
+
+                // 현재 index.js 폴더의 poster 폴더 내에 해당 파일 명으로 이미지 저장하기
+                fs.writeFileSync(`poster/${record.제목}.jpg`, imgResult.data)
             }
 
             // 페이지 로드 후 3초간 대기한다
