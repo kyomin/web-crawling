@@ -4,6 +4,15 @@ const axios = require('axios');
 const fs = require('fs');
 
 
+/* folder handling */
+fs.readdir('imgs', (err) => {
+    if(err) {
+        console.error('imgs 폴더가 없어 imgs 폴더를 생성합니다.');
+        fs.mkdirSync('imgs');
+    }
+});
+
+
 /* create crawler */
 const crawler = async () => {
     try {
@@ -45,8 +54,18 @@ const crawler = async () => {
             await page.waitForSelector('.nDTlD');   // 해당 클래스의 태그가 로딩되길 기다린다.
             console.log('새 이미지 태그 로딩 완료!');
         }
-        
-        console.log(result);
+
+        // 이미지 소스들을 파일로 만들어서 imgs 폴더에 담기.
+        result.forEach(async (src, idx) => {
+            const imgResult = await axios.get(src.split('?')[0], {
+                responseType: 'arraybuffer'
+            });
+
+            fs.writeFileSync(`imgs/${new Date().valueOf()}.jpeg`, imgResult.data);
+        });
+
+        await page.close();
+        await browser.close();
     } catch(e) {
         console.error(e);
     }
