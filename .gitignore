@@ -1,4 +1,3 @@
 /node_modules
 
-/poster
-/screenshot
+.env
