@@ -20,15 +20,18 @@ const crawler = async () => {
         });
         await page.goto('https://facebook.com/');
 
-        const id = process.env.EMAIL;
-        const password = process.env.PASSWORD;
-        await page.evaluate((id, password) => {
-            document.querySelector('#email').value = id;
-            document.querySelector('#pass').value = password;
-            document.querySelector('#loginbutton').click();
-        }, id, password);
-        // await page.close();
-        // await browser.close();
+        // input 태그에 타이핑한다.
+        await page.type('#email', process.env.EMAIL);
+        await page.type('#pass', process.env.PASSWORD);
+
+        // 마우스를 로그인 버튼 위에 올린다.
+        await page.hover('#loginbutton');
+
+        // 3초간 기다린다.
+        await page.waitFor(3000);
+
+        // 로그인 버튼을 클릭한다.
+        await page.click('#loginbutton');
     } catch(e) {
         console.error(e);
     }
