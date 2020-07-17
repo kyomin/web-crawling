@@ -8,71 +8,76 @@ dotenv.config();
 
 /* create crawler */
 const crawler = async () => {
-    await db.sequelize.sync();
-
     try {
-        let browser = await puppeteer.launch({ 
+        // await db.sequelize.sync();
+
+        const browser = await puppeteer.launch({ 
             headless: false, 
-            args: ['--window--size=1920, 1080'] 
+            args: ['--window--size=1920, 1080', '--disable-notifications'] 
         });
-        let page = await browser.newPage();
+        const page = await browser.newPage();
         await page.setViewport({
             width: 1920,
             height: 1080
         });
-        await page.goto('http://spys.one/en/free-proxy-list/');
+        await page.goto('https://www.instagram.com/');
         
-        const proxies = await page.evaluate(() => {
-            const ips = Array.from(document.querySelectorAll('tr > td:nth-child(1) > .spy14')).map((x) => {
-                let v = x.textContent
-                let ip = v.split(':')[0].split('d')[0];
-                let port = v.split(':')[2];
+        // 페이스북으로 로그인 버튼이 로딩될 때까지 기다리고 클릭한다.
+        await page.waitForSelector('button.sqdOP.yWX7d.y3zKF');     
+        await page.click('button.sqdOP.yWX7d.y3zKF'); 
 
-                return ip + ':' + port;
-            });
-            const protocols = Array.from(document.querySelectorAll('tr > td:nth-child(2) > a > .spy1')).map((x) => x.textContent);
-            const latencies = Array.from(document.querySelectorAll('tr > td:nth-child(6) > .spy1')).map((x) => x.textContent);
+        // 페이스북 로그인 페이지가 로딩되는 것을 기다린다.               
+        await page.waitForNavigation();
+
+        // 페이스북 로그인 페이지의 input 태그에 계정 정보를 타이핑한다.
+        await page.waitForSelector('#email');
+        await page.type('#email', process.env.EMAIL);
+        await page.type('#pass', process.env.PASSWORD);
+
+        // 로그인 버튼을 클릭한다.
+        await page.waitForSelector('#loginbutton');
+        await page.click('#loginbutton');
+
+        // 페이스북으로 로그인이 완료되면 다시 인스타 페이지로 넘어가므로!
+        await page.waitForNavigation();
+
+        await page.waitForSelector('.zGtbP.IPQK5.VideM');
+
+        // 페이지 새로고침
+        await page.reload({ waitUntil: ["networkidle0", "domcontentloaded"] });
+
+
+        // 스크롤 하면서 크롤링하기
+        let result = [];
+        let prevPostId = '';
         
-            return ips.map((x, i) => {
+        // 10개까지만 긁어온다.
+        while(result.length < 10) {
+            const newPost = await page.evaluate(() => {
+                const article = document.querySelector('article:nth-child(1)');
+                const postId = article && article.querySelector('.c-Yi7') && article.querySelector('.c-Yi7').href;
+                const img = article && article.querySelector('div.KL4Bh img') && article.querySelector('div.KL4Bh img').src;
+                
                 return {
-                    ip: x,
-                    protocol: protocols[i],
-                    latency: latencies[i]
+                    postId, img
                 }
             });
-        });
 
-        // HTTP 프로토콜을 사용하고 지연 시간이 작은 순서대로 정렬한다.
-        const filtered = proxies.filter((x) => x.protocol.startsWith("HTTP")).sort((a, b) => a.latency - b.latency);
-        await Promise.all(filtered.map(async (x) => {
-            return db.Proxy.create({
-               ip: x.ip,
-               protocol: x.protocol,
-               latency: x.latency
+            if(newPost.postId && newPost.img) {
+                if(newPost.postId !== prevPostId) {
+                    if(!result.find((x) => x.postId === newPost.postId)) {
+                        result.push(newPost);
+                    }
+                    prevPostId = newPost.postId;
+                }
+            }
+
+            await page.evaluate(() => {
+                window.scrollBy(0, 800);
             });
-        }));
+        }
 
-        // 페이지와 브라우저를 닫고
-        await page.close();         
-        await browser.close();
-        
-        // 가장 빠른 프록시 DB에서 추출(latency 기준)
-        const fastestProxy = await db.Proxy.findOne({
-            order: ['latency', 'ASC']
-        });
-
-        // 다시 브라우저를 킨다.
-        browser = await puppeteer.launch({ 
-            headless: false, 
-            args: ['--window--size=1920, 1080', `--proxy-server=${fastestProxy.ip}`] 
-        });
-        page = await browser.newPage();
-        await page.setViewport({
-            width: 1920,
-            height: 1080
-        });
-        await page.goto('https://www.naver.com/');
-        await db.sequelize.close();
+        console.log('result : ', result);
     } catch(e) {
         console.error(e);
     }
