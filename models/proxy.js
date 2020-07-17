@@ -1,5 +1,3 @@
-const { sequelize, Sequelize } = require(".");
-
 module.exports = (sequelize, Sequelize) => {
     return sequelize.define('proxy', {
         ip: {

@@ -9,7 +9,7 @@ dotenv.config();
 /* create crawler */
 const crawler = async () => {
     try {
-        // await db.sequelize.sync();
+        await db.sequelize.sync();
 
         const browser = await puppeteer.launch({ 
             headless: false, 
@@ -55,7 +55,7 @@ const crawler = async () => {
         while(result.length < 10) {
             const newPost = await page.evaluate(() => {
                 const article = document.querySelector('article:nth-child(1)');
-                const postId = article && article.querySelector('.c-Yi7') && article.querySelector('.c-Yi7').href;
+                const postId = article && article.querySelector('.c-Yi7') && article.querySelector('.c-Yi7').href.split('/').slice(-2, -1)[0];
                 const img = article && article.querySelector('div.KL4Bh img') && article.querySelector('div.KL4Bh img').src;
                 
                 return {
@@ -66,7 +66,11 @@ const crawler = async () => {
             if(newPost.postId && newPost.img) {
                 if(newPost.postId !== prevPostId) {
                     if(!result.find((x) => x.postId === newPost.postId)) {
-                        result.push(newPost);
+                        // DB에도 저장이 되어있는지 확인해본다.
+                        const exist = await db.Instagram.findOne({ where: {postId: newPost.postId} });
+                        if(!exist) {
+                            result.push(newPost);
+                        }
                     }
                     prevPostId = newPost.postId;
                 }
@@ -77,7 +81,12 @@ const crawler = async () => {
             });
         }
 
-        console.log('result : ', result);
+        await Promise.all(result.map((r) => {
+            return db.Instagram.create({
+                postId: r.postId,
+                image: r.img
+            })
+        }));
     } catch(e) {
         console.error(e);
     }
