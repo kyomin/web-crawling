@@ -1,10 +1,23 @@
 /* module import */
 const puppeteer = require('puppeteer');
 const dotenv = require('dotenv');
+const fs = require('fs');
+const axios = require('axios');
 const db = require('./models');
 
 dotenv.config();
 
+/* constants handling */
+const MAX_NUM_OF_IMAGES = 1000;
+const SEARCH_WORD = '맛집';
+
+/* folder handling */
+fs.readdir('image', (err) => {
+    if(err) {
+        console.error('image 폴더가 없어 image 폴더를 생성합니다.');
+        fs.mkdirSync('image');
+    }
+});
 
 /* create crawler */
 const crawler = async () => {
@@ -46,47 +59,126 @@ const crawler = async () => {
         // 페이지 새로고침
         await page.reload({ waitUntil: ["networkidle0", "domcontentloaded"] });
 
+        // 태그 입력 과정!
+        await page.waitForSelector('input.XTCLo.x3qfX');
+        await page.click('input.XTCLo.x3qfX');
+        await page.keyboard.type(SEARCH_WORD);
+        await page.waitForSelector('.drKGC');
+        const href = await page.evaluate(() => {
+            return document.querySelector('div.drKGC > div.fuqBx > a:nth-child(1)').href;
+        });
+        await page.goto(href);
 
-        // 스크롤 하면서 크롤링하기
+        /* 스크롤하면서 크롤링하기 */
         let result = [];
         let prevPostId = '';
-        
-        // 10개까지만 긁어온다.
-        while(result.length < 10) {
-            const newPost = await page.evaluate(() => {
-                const article = document.querySelector('article:nth-child(1)');
-                const postId = article && article.querySelector('.c-Yi7') && article.querySelector('.c-Yi7').href.split('/').slice(-2, -1)[0];
-                const img = article && article.querySelector('div.KL4Bh img') && article.querySelector('div.KL4Bh img').src;
-                
-                return {
-                    postId, img
-                }
-            });
 
-            if(newPost.postId && newPost.img) {
-                if(newPost.postId !== prevPostId) {
-                    if(!result.find((x) => x.postId === newPost.postId)) {
-                        // DB에도 저장이 되어있는지 확인해본다.
-                        const exist = await db.Instagram.findOne({ where: {postId: newPost.postId} });
+        // 맨 처음의 인기 게시물 9개를 긁어온다.
+        await page.waitForSelector('div.Nnq7C.weEfm');
+        const posts =  await page.evaluate(() => {
+            let imgs = document.querySelector('div.EZdmt');
+            imgs = imgs.querySelectorAll('div.Nnq7C.weEfm');
+            
+            let container = [];
+
+            for(var i =0; i<imgs.length; i++) {
+                let temp = imgs[i].children;
+                temp = Array.from(imgs);
+
+                temp.forEach((v) => {
+                    const image = v.querySelector('img').src;
+                    const postId = v.querySelector('a').href.split('/').slice(-2, -1)[0];
+                    container.push({
+                        postId,
+                        image
+                    });
+                });
+            }
+
+            return container;
+        });
+
+        posts.forEach(async (post) => {
+            if(post.postId) {
+                if(post.postId !== prevPostId) {
+                    // 현재 삽입 중인 배열에 기존 원소가 있는지 확인한다.
+                    if(!result.find( (x) => x.postId === post.postId) ) {
+                        // DB에도 저장이 되었는지 확인해본다.
+                        const exist = await db.Instagram.findOne({ where: {postId: post.postId} });
                         if(!exist) {
-                            result.push(newPost);
+                            result.push(post);
                         }
                     }
-                    prevPostId = newPost.postId;
+
+                    prevPostId = post.postId;
                 }
             }
+        });
+
+        await page.evaluate(() => {
+            window.scrollBy(0, 1200);
+        });
+
+        // 상수로 지정한 최대 이미지 크롤링 개수만큼 긁어오기
+        while(result.length < MAX_NUM_OF_IMAGES) {
+            await page.waitForSelector('div.Nnq7C.weEfm');
+            const posts =  await page.evaluate(() => {
+                let article = document.querySelector('article.KC1QD');
+                let divs = article.querySelectorAll('div');
+                let imgContainer = divs[44];
+                let imgs = imgContainer.querySelector('div.Nnq7C.weEfm');
+                imgs = imgs.children;
+                imgs = Array.from(imgs);
+    
+                return imgs.map((img) => {
+                    const image = img.querySelector('img').src;
+                    const postId = img.querySelector('a').href.split('/').slice(-2, -1)[0];
+    
+                    return {
+                        postId,
+                        image
+                    }
+                });
+            });
+
+            posts.forEach(async (post) => {
+                if(post.postId) {
+                    if(post.postId !== prevPostId) {
+                        // 현재 삽입 중인 배열에 기존 원소가 있는지 확인한다.
+                        if(!result.find( (x) => x.postId === post.postId) ) {
+                            // DB에도 저장이 되었는지 확인해본다.
+                            const exist = await db.Instagram.findOne({ where: {postId: post.postId} });
+                            if(!exist) {
+                                result.push(post);
+                            }
+                        }
+
+                        prevPostId = post.postId;
+                    }
+                }
+            });
 
             await page.evaluate(() => {
                 window.scrollBy(0, 800);
             });
         }
 
-        await Promise.all(result.map((r) => {
+        // 로컬 폴더에 이미지 저장 및 DB에 데이터 저장!
+        await Promise.all(result.map(async (r, i) => {
+            console.log(`image ${i} : `, r.image)
+            if(r.image) {
+                const imgResult = await axios.get(r.image, {
+                    responseType: 'arraybuffer'
+                });
+
+                fs.writeFileSync(`image/${r.postId}.jpg`, imgResult.data)
+            }
+
             return db.Instagram.create({
                 postId: r.postId,
-                image: r.img
+                image: r.image
             })
-        }));
+        }))
     } catch(e) {
         console.error(e);
     }

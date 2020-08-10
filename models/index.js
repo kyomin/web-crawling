@@ -5,7 +5,6 @@ const db = {};
 
 const sequelize = new Sequelize(config.database, config.username, config.password, config);
 
-db.Proxy = require('./proxy')(sequelize, Sequelize);
 db.Instagram = require('./instagram')(sequelize, Sequelize);
 
 db.sequelize = sequelize;
