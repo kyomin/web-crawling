@@ -9,7 +9,8 @@ dotenv.config();
 
 /* constants handling */
 const MAX_NUM_OF_IMAGES = 1000;
-const SEARCH_WORD = '맛집';
+const SEARCH_WORD = '수원맛집';
+const URL = `https://www.instagram.com/`
 
 /* folder handling */
 fs.readdir('image', (err) => {
@@ -33,7 +34,7 @@ const crawler = async () => {
             width: 1920,
             height: 1080
         });
-        await page.goto('https://www.instagram.com/');
+        await page.goto(URL);
         
         // 페이스북으로 로그인 버튼이 로딩될 때까지 기다리고 클릭한다.
         await page.waitForSelector('button.sqdOP.yWX7d.y3zKF');     
@@ -75,19 +76,20 @@ const crawler = async () => {
 
         // 맨 처음의 인기 게시물 9개를 긁어온다.
         await page.waitForSelector('div.Nnq7C.weEfm');
-        const posts =  await page.evaluate(() => {
+        const popularPosts = await page.evaluate(() => {
             let imgs = document.querySelector('div.EZdmt');
             imgs = imgs.querySelectorAll('div.Nnq7C.weEfm');
-            
+
             let container = [];
 
-            for(var i =0; i<imgs.length; i++) {
+            for(let i = 0; i < imgs.length; i++) {
                 let temp = imgs[i].children;
                 temp = Array.from(imgs);
 
-                temp.forEach((v) => {
-                    const image = v.querySelector('img').src;
-                    const postId = v.querySelector('a').href.split('/').slice(-2, -1)[0];
+                temp.forEach(async (img) => {
+                    const image = img.querySelector('img').src;
+                    const postId = img.querySelector('a').href.split('/').slice(-2, -1)[0];
+                    
                     container.push({
                         postId,
                         image
@@ -98,7 +100,7 @@ const crawler = async () => {
             return container;
         });
 
-        posts.forEach(async (post) => {
+        popularPosts.forEach(async (post) => {
             if(post.postId) {
                 if(post.postId !== prevPostId) {
                     // 현재 삽입 중인 배열에 기존 원소가 있는지 확인한다.
@@ -121,24 +123,32 @@ const crawler = async () => {
 
         // 상수로 지정한 최대 이미지 크롤링 개수만큼 긁어오기
         while(result.length < MAX_NUM_OF_IMAGES) {
+            console.log('===========================================');
+            console.log('현재 담은 데이터 길이 : ', result.length);
+            console.log('===========================================');
             await page.waitForSelector('div.Nnq7C.weEfm');
-            const posts =  await page.evaluate(() => {
+            const posts = await page.evaluate(() => {
                 let article = document.querySelector('article.KC1QD');
                 let divs = article.querySelectorAll('div');
-                let imgContainer = divs[44];
+                let imgContainer = divs[44];                // 수시로 변하므로 주의! (44 | 45 | 46 | 48) => 컨테이너 다 선택되는 거! 
                 let imgs = imgContainer.querySelector('div.Nnq7C.weEfm');
+
                 imgs = imgs.children;
                 imgs = Array.from(imgs);
+
+                let container = [];
     
-                return imgs.map((img) => {
+                imgs.forEach(async (img) => {
                     const image = img.querySelector('img').src;
                     const postId = img.querySelector('a').href.split('/').slice(-2, -1)[0];
-    
-                    return {
+                    
+                    container.push({
                         postId,
                         image
-                    }
+                    });
                 });
+
+                return container;
             });
 
             posts.forEach(async (post) => {
@@ -165,7 +175,6 @@ const crawler = async () => {
 
         // 로컬 폴더에 이미지 저장 및 DB에 데이터 저장!
         await Promise.all(result.map(async (r, i) => {
-            console.log(`image ${i} : `, r.image)
             if(r.image) {
                 const imgResult = await axios.get(r.image, {
                     responseType: 'arraybuffer'
@@ -177,8 +186,8 @@ const crawler = async () => {
             return db.Instagram.create({
                 postId: r.postId,
                 image: r.image
-            })
-        }))
+            });
+        }));
     } catch(e) {
         console.error(e);
     }
