@@ -1,2 +1,6 @@
 # web-crawling
-web crawling using node.js
+
+여러 사이트들을 node.js를 이용하여 크롤링 실습을 한 프로젝트입니다.   
+   
+   
+   최종 완성 프로젝트는 인스타그램 해시 태그의 이미지 크롤링입니다.
