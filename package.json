@@ -10,7 +10,7 @@
   "license": "ISC",
   "dependencies": {
     "axios": "^0.21.2",
-    "cheerio": "^1.0.0-rc.3",
+    "cheerio": "^1.0.0-rc.12",
     "csv-parse": "^4.12.0",
     "csv-stringify": "^5.5.1",
     "dotenv": "^8.2.0",
