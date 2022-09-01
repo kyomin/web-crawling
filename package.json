@@ -16,7 +16,7 @@
     "dotenv": "^8.2.0",
     "mysql2": "^2.1.0",
     "puppeteer": "^4.0.1",
-    "sequelize": "^6.3.4",
+    "sequelize": "^6.21.4",
     "xlsx": "^0.17.0"
   }
 }
