@@ -4,7 +4,7 @@
   "description": "web crawling using node.js",
   "main": "index.js",
   "scripts": {
-    "start": "nodemon index.js"
+    "start": "node index.js"
   },
   "author": "kyomin",
   "license": "ISC",
@@ -16,7 +16,15 @@
     "dotenv": "^8.2.0",
     "mysql2": "^2.1.0",
     "puppeteer": "^4.0.1",
-    "sequelize": "^6.3.4",
+    "sequelize": "^6.3.5",
     "xlsx": "^0.16.6"
+  },
+  "devDependencies": {
+    "eslint": "^7.10.0",
+    "eslint-config-airbnb-base": "^14.2.0",
+    "eslint-config-prettier": "^6.12.0",
+    "eslint-plugin-import": "^2.22.0",
+    "eslint-plugin-prettier": "^3.1.4",
+    "prettier": "^2.1.2"
   }
 }
