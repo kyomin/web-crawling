@@ -9,7 +9,7 @@ dotenv.config();
 
 /* constants handling */
 const MAX_NUM_OF_IMAGES = 1000;
-const SEARCH_WORD = '맛집';
+const SEARCH_WORD = '';
 const URL = `https://www.instagram.com`;
 
 /* folder handling */
@@ -39,6 +39,27 @@ const crawler = async () => {
 
     // 페이지 새로고침
     await page.reload({ waitUntil: ['networkidle0', 'domcontentloaded'] });
+
+    // 돔 삽입 및 전역 변수 등록
+    await page.evaluate(() => {
+      let dom = document.querySelector('header');
+      dom.innerHTML = `
+        <div style="position: fixed; z-index: 1000 !important;">          
+          <button id="myChangeBtn" type="button">크롤링 중단</button>
+        </div>
+      `;
+
+      window.haltFlag = false;
+    });
+
+    // 이벤트 등록
+    await page.evaluate(() => {
+      const buttonElement = document.querySelector('#myChangeBtn');
+
+      buttonElement.addEventListener('click', () => {
+        window.haltFlag = true;
+      });
+    });
 
     /* 스크롤하면서 크롤링하기 */
     let result = [];
@@ -98,11 +119,16 @@ const crawler = async () => {
 
     // 상수로 지정한 최대 이미지 크롤링 개수만큼 긁어오기
     while (result.length < MAX_NUM_OF_IMAGES) {
-      await setTimeout(() => {
+      await setTimeout(async () => {
         console.log('===========================================');
         console.log('현재 담은 데이터 길이 : ', result.length);
         console.log('===========================================');
       }, 1000);
+
+      const haltFlag = await page.evaluate(() => haltFlag);
+      if (haltFlag) {
+        break;
+      }
 
       await page.waitForSelector('div._ac7v');
       const posts = await page.evaluate(() => {

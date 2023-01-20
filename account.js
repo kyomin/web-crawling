@@ -7,9 +7,8 @@ const db = require('./models');
 
 dotenv.config();
 
-const MAX_NUM_OF_IMAGES = 500;
-const ACCOUNT_NAME = 'kim.kyomin';
-const URL = `https://www.instagram.com/`;
+const MAX_NUM_OF_IMAGES = 190;
+const ACCOUNT_NAME = '';
 
 /* folder handling */
 fs.readdir('account', (err) => {
@@ -34,31 +33,6 @@ const crawler = async () => {
       width: 1920,
       height: 1080,
     });
-    await page.goto(URL);
-
-    if (await page.$('input.XTCLo.x3qfX')) {
-      console.log('로그인되어 있습니다');
-    } else {
-      // 페이스북으로 로그인 버튼이 로딩될 때까지 기다리고 클릭한다.
-      await page.waitForSelector('button.sqdOP.yWX7d.y3zKF');
-      await page.click('button.sqdOP.yWX7d.y3zKF');
-
-      // 페이스북 로그인 페이지가 로딩되는 것을 기다린다.
-      await page.waitForNavigation();
-
-      // 페이스북 로그인 페이지의 input 태그에 계정 정보를 타이핑한다.
-      await page.waitForSelector('#email');
-      await page.type('#email', process.env.EMAIL);
-      await page.type('#pass', process.env.PASSWORD);
-
-      // 로그인 버튼을 클릭한다.
-      await page.waitForSelector('#loginbutton');
-      await page.click('#loginbutton');
-
-      // 페이스북으로 로그인이 완료되면 다시 인스타 페이지로 넘어가므로!
-      await page.waitForNavigation();
-    }
-
     await page.goto(`https://www.instagram.com/${ACCOUNT_NAME}/`);
 
     // 페이지 새로고침
@@ -76,11 +50,21 @@ const crawler = async () => {
         console.log('===========================================');
       }, 1000);
 
-      await page.waitForSelector('article.ySN3v');
+      await page.waitForSelector('div._ac7v');
       const posts = await page.evaluate(() => {
-        let imgContainer = document.querySelector('article.ySN3v');
-        imgContainer = imgContainer.querySelector('div > div');
-        let imgs = imgContainer.querySelector('div.Nnq7C.weEfm');
+        let article = document.querySelector('article.x1iyjqo2');
+        let divs = article.querySelectorAll('div');
+        let imgContainer;
+        let imgs;
+
+        for (let i = 1; i <= 100; i++) {
+          imgContainer = divs[i];
+          imgs = imgContainer.querySelector('div._ac7v');
+
+          if (imgs) {
+            break;
+          }
+        }
 
         imgs = imgs.children;
         imgs = Array.from(imgs);

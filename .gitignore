@@ -1,5 +1,6 @@
 /node_modules
 /image
+/account
 .env
 /UsersUSERAppDataLocalGoogleChromeUser Data
 package-lock.json
